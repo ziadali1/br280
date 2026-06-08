@@ -1,0 +1,48 @@
+name: Coleta de trânsito (SFS <-> Joinville)
+
+on:
+  # Janela: 05h às 00h (meia-noite) horário de São Paulo (UTC-3).
+  # SP 05h..23h -> UTC 08h..02h ; SP 00h -> UTC 03h.
+  # Resultado: UTC 08-23 e 00-03, de hora em hora.
+  schedule:
+    - cron: "0 0-3,8-23 * * *"
+  # Permite rodar manualmente para teste
+  workflow_dispatch:
+
+# Evita execuções sobrepostas se uma demorar
+concurrency:
+  group: traffic-collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependências
+        working-directory: scraper
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Rodar coletor
+        working-directory: scraper
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scrape.py
+
+      - name: Salvar artifacts de debug (em caso de falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-debug-${{ github.run_id }}
+          path: scraper/artifacts/
+          retention-days: 7
+          if-no-files-found: ignore
