@@ -41,7 +41,7 @@ export async function getOverview(direction: Direction): Promise<Overview> {
       MAX(collected_at_local)::text                  AS last_collected,
       (ARRAY_AGG(duration_text ORDER BY collected_at DESC))[1] AS last_duration_text
     FROM traffic_readings
-    WHERE direction = ${direction} AND status = 'ok'
+    WHERE direction = ${direction} AND status = 'ok' AND kind = 'total'
   `) as Record<string, unknown>[];
   const r = rows[0] ?? {};
   return {
@@ -60,7 +60,8 @@ export async function getHeatmap(direction: Direction): Promise<HeatCell[]> {
            AVG(duration_seconds)::float AS avg_seconds,
            COUNT(*)::int AS samples
     FROM traffic_readings
-    WHERE direction = ${direction} AND status = 'ok' AND duration_seconds IS NOT NULL
+    WHERE direction = ${direction} AND status = 'ok' AND kind = 'total'
+      AND duration_seconds IS NOT NULL
     GROUP BY weekday, local_hour
   `) as Record<string, unknown>[];
   return rows.map((r) => ({
@@ -79,7 +80,8 @@ export async function getHourStats(direction: Direction): Promise<HourStat[]> {
            AVG(duration_seconds)::float AS avg_seconds,
            COUNT(*)::int AS samples
     FROM traffic_readings
-    WHERE direction = ${direction} AND status = 'ok' AND duration_seconds IS NOT NULL
+    WHERE direction = ${direction} AND status = 'ok' AND kind = 'total'
+      AND duration_seconds IS NOT NULL
     GROUP BY local_hour
     ORDER BY local_hour
   `) as Record<string, unknown>[];
