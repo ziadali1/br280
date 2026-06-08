@@ -16,6 +16,7 @@ Variáveis de ambiente:
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
 import pathlib
 import re
@@ -38,6 +39,7 @@ except Exception:  # noqa: BLE001
 SP_TZ = ZoneInfo(TIMEZONE)
 ROOT = pathlib.Path(__file__).resolve().parent
 SCHEMA_PATH = ROOT.parent / "db" / "schema.sql"
+SEGMENTS_PATH = ROOT / "segments.json"
 ARTIFACTS = ROOT / "artifacts"
 
 NAV_TIMEOUT_MS = 45_000
@@ -99,6 +101,44 @@ def build_url(origin: str, destination: str) -> str:
         f"&destination={quote(destination)}"
         "&travelmode=driving&hl=pt-BR&gl=BR"
     )
+
+
+def build_jobs() -> list[dict]:
+    """Monta a lista de medições: rota inteira (total) + cada sub-trecho,
+    nas duas direções. Trechos usam coordenadas 'lat,lng' para evitar
+    ambiguidade de geocodificação."""
+    jobs: list[dict] = []
+
+    # Rota inteira (mantém a série histórica ponta-a-ponta)
+    for route in ROUTES:
+        jobs.append({
+            "direction": route["direction"],
+            "label": route["label"],
+            "kind": "total",
+            "segment_index": None,
+            "segment_name": None,
+            "origin": route["origin"],
+            "destination": route["destination"],
+        })
+
+    # Sub-trechos (segment_index é o índice FÍSICO, igual nas duas direções)
+    if SEGMENTS_PATH.exists():
+        segments = json.loads(SEGMENTS_PATH.read_text(encoding="utf-8"))["segments"]
+        for seg in segments:
+            a = f"{seg['from'][0]},{seg['from'][1]}"  # lado SFS
+            b = f"{seg['to'][0]},{seg['to'][1]}"      # lado Joinville
+            jobs.append({
+                "direction": "ida", "label": f"[trecho {seg['index']}] {seg['name']}",
+                "kind": "segment", "segment_index": seg["index"],
+                "segment_name": seg["name"], "origin": a, "destination": b,
+            })
+            jobs.append({
+                "direction": "volta", "label": f"[trecho {seg['index']}] {seg['name']}",
+                "kind": "segment", "segment_index": seg["index"],
+                "segment_name": seg["name"], "origin": b, "destination": a,
+            })
+
+    return jobs
 
 
 def dismiss_consent(page) -> None:
@@ -192,7 +232,7 @@ def ensure_schema(conn) -> None:
     conn.commit()
 
 
-def insert_reading(conn, route: dict, now_utc: dt.datetime, now_sp: dt.datetime,
+def insert_reading(conn, job: dict, now_utc: dt.datetime, now_sp: dt.datetime,
                    data: dict | None, status: str, error: str | None) -> None:
     data = data or {}
     with conn.cursor() as cur:
@@ -200,16 +240,17 @@ def insert_reading(conn, route: dict, now_utc: dt.datetime, now_sp: dt.datetime,
             """
             INSERT INTO traffic_readings (
                 collected_at, collected_at_local, local_date, local_hour, weekday,
-                direction, origin, destination,
+                direction, origin, destination, kind, segment_index, segment_name,
                 duration_seconds, duration_text, distance_meters, distance_text,
                 route_summary, source, status, error
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (direction, local_date, local_hour)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (direction, COALESCE(segment_index, -1), local_date, local_hour)
                 WHERE status = 'ok' DO NOTHING
             """,
             (
                 now_utc, now_sp.replace(tzinfo=None), now_sp.date(), now_sp.hour,
-                now_sp.weekday(), route["direction"], route["origin"], route["destination"],
+                now_sp.weekday(), job["direction"], job["origin"], job["destination"],
+                job["kind"], job.get("segment_index"), job.get("segment_name"),
                 data.get("duration_seconds"), data.get("duration_text"),
                 data.get("distance_meters"), data.get("distance_text"),
                 data.get("route_summary"), "google_maps_scrape", status, error,
@@ -259,12 +300,15 @@ def main() -> int:
         page = context.new_page()
         page.set_default_timeout(NAV_TIMEOUT_MS)
 
-        for route in ROUTES:
-            print(f"-> {route['label']}")
+        jobs = build_jobs()
+        print(f"{len(jobs)} medições nesta execução")
+
+        for job in jobs:
+            print(f"-> {job['direction']:5} {job['label']}")
             try:
-                data = scrape_route(page, route)
+                data = scrape_route(page, job)
                 if not dry_run:
-                    insert_reading(conn, route, now_utc, now_sp, data, "ok", None)
+                    insert_reading(conn, job, now_utc, now_sp, data, "ok", None)
                 print(
                     f"   OK: {data.get('duration_text')} "
                     f"({data.get('duration_seconds')}s), {data.get('distance_text')}"
@@ -272,9 +316,10 @@ def main() -> int:
             except Exception as exc:  # noqa: BLE001
                 failures += 1
                 print(f"   FALHOU: {exc}")
-                dump_artifacts(page, route["direction"])
+                tag = f"{job['direction']}_{job['kind']}{job.get('segment_index', '')}"
+                dump_artifacts(page, tag)
                 if not dry_run:
-                    insert_reading(conn, route, now_utc, now_sp, None, "failed", str(exc))
+                    insert_reading(conn, job, now_utc, now_sp, None, "failed", str(exc))
 
         context.close()
         browser.close()

@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS traffic_readings (
     origin              TEXT NOT NULL,
     destination         TEXT NOT NULL,
 
+    -- Tipo de medição: rota inteira ('total') ou sub-trecho ('segment')
+    kind                TEXT NOT NULL DEFAULT 'total' CHECK (kind IN ('total', 'segment')),
+    segment_index       SMALLINT,        -- índice físico do trecho (0=lado SFS), NULL p/ total
+    segment_name        TEXT,
+
     -- Medições
     duration_seconds        INTEGER,        -- tempo no trânsito (segundos)
     duration_text           TEXT,           -- texto cru exibido ("1 h 6 min")
@@ -32,6 +37,11 @@ CREATE TABLE IF NOT EXISTS traffic_readings (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Migração idempotente (para bancos criados antes destes campos)
+ALTER TABLE traffic_readings ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'total';
+ALTER TABLE traffic_readings ADD COLUMN IF NOT EXISTS segment_index SMALLINT;
+ALTER TABLE traffic_readings ADD COLUMN IF NOT EXISTS segment_name TEXT;
+
 -- Índices para as consultas do dashboard
 CREATE INDEX IF NOT EXISTS idx_readings_direction_hour
     ON traffic_readings (direction, local_hour);
@@ -39,10 +49,15 @@ CREATE INDEX IF NOT EXISTS idx_readings_direction_hour
 CREATE INDEX IF NOT EXISTS idx_readings_direction_weekday_hour
     ON traffic_readings (direction, weekday, local_hour);
 
+CREATE INDEX IF NOT EXISTS idx_readings_segment
+    ON traffic_readings (direction, kind, segment_index, local_hour);
+
 CREATE INDEX IF NOT EXISTS idx_readings_collected_at
     ON traffic_readings (collected_at DESC);
 
--- Evita gravar duas leituras "ok" da mesma direção na mesma data/hora local
+-- Evita duplicar a mesma medição (total OU trecho) por direção/data/hora local.
+-- COALESCE trata o NULL do total como um valor distinto (-1).
+DROP INDEX IF EXISTS uq_readings_slot;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_readings_slot
-    ON traffic_readings (direction, local_date, local_hour)
+    ON traffic_readings (direction, COALESCE(segment_index, -1), local_date, local_hour)
     WHERE status = 'ok';

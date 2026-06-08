@@ -12,6 +12,11 @@ de mobilidade depois de alguns meses de extração.
 - **Janela:** 05h às 00h (meia-noite), horário de Brasília, de hora em hora
 - **Fonte:** Google Maps (scraping headless) — **sem API paga**
 
+Além do tempo ponta-a-ponta, a rota é dividida em **5 sub-trechos** medidos
+individualmente, alimentando um **mapa de gargalos** (`/mapa`) que mostra onde o
+trânsito mais trava — comparando o tempo médio de cada trecho com seu fluxo
+livre (mínimo histórico).
+
 ## Arquitetura
 
 ```
@@ -39,10 +44,13 @@ db/
   schema.sql      # tabela traffic_readings + índices
   seed.sql        # dados sintéticos p/ testar o dashboard
 scraper/
-  scrape.py       # coletor (Playwright → Postgres)
-  config.py       # rotas (ida/volta) e fuso
+  scrape.py          # coletor (Playwright → Postgres): total + sub-trechos
+  config.py          # rotas (ida/volta) e fuso
+  build_segments.py  # gera segments.json (OSRM + Nominatim) — rodar uma vez
+  segments.json      # 5 sub-trechos: nome, coordenadas e geometria
   requirements.txt
-web/              # app Next.js (dashboard)
+web/              # app Next.js (dashboard de horários + mapa de gargalos)
+  public/segments.json   # cópia da geometria para o mapa (Leaflet)
 .github/workflows/collect.yml   # cron de coleta
 ```
 

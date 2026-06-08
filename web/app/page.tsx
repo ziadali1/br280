@@ -3,6 +3,7 @@ import { Direction, getHeatmap, getHourStats, getOverview } from "@/lib/queries"
 import { Heatmap } from "@/components/Heatmap";
 import { BestHours } from "@/components/BestHours";
 import { fmtDateTime } from "@/lib/format";
+import { Nav } from "@/components/Nav";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -37,6 +38,7 @@ export default async function Page({
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-10">
+      <Nav active="home" />
       <header className="mb-8">
         <p className="text-sm font-medium uppercase tracking-wider text-sky-400">
           BR-280 · Santa Catarina

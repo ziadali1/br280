@@ -24,6 +24,21 @@ export function congestionColor(value: number, min: number, max: number): string
   return `hsl(${hue} 68% 45%)`;
 }
 
+/** Cor pelo índice de congestionamento (ratio = atual / fluxo livre). */
+export function ratioColor(ratio: number): string {
+  // 1.0 (livre) -> verde ; >=2.0 (dobro do tempo) -> vermelho
+  const t = Math.min(1, Math.max(0, (ratio - 1) / 1));
+  const hue = 140 - t * 140;
+  return `hsl(${hue} 75% 48%)`;
+}
+
+export function ratioLabel(ratio: number): string {
+  if (ratio < 1.15) return "Fluindo";
+  if (ratio < 1.4) return "Moderado";
+  if (ratio < 1.8) return "Lento";
+  return "Congestionado";
+}
+
 export function fmtDateTime(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso.replace(" ", "T"));
