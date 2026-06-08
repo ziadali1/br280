@@ -5,10 +5,7 @@ Coleta de hora em hora o tempo de viagem entre **São Francisco do Sul** e
 dashboard com os **melhores horários para viajar** numa via notoriamente
 congestionada.
 
-Projeto de portfólio de engenharia de dados — e base de apoio a órgãos públicos
-de mobilidade depois de alguns meses de extração.
-
-- **Trecho:** Rua Fernandes Dias, 322 — Centro, São Francisco do Sul ⇄ Shopping Mueller Joinville — Centro
+- **Trecho Referência (Sempre usado o mesmo):** Rua Fernandes Dias, Centro, São Francisco do Sul ⇄ Shopping Mueller Joinville — Centro
 - **Janela:** 05h às 00h (meia-noite), horário de Brasília, de hora em hora
 - **Fonte:** Google Maps (scraping headless) — **sem API paga**
 
@@ -141,7 +138,4 @@ hora local.
 - **Scraping é frágil:** se o Google mudar o HTML do Maps, ajuste
   `ROUTE_BLOCK_RE` / a lógica de `extract_reading` em `scraper/scrape.py`. Os
   artifacts salvos em falhas ajudam.
-- **Termos de Serviço:** scraping do Google Maps é tecnicamente contra os ToS.
-  Volume baixo (1 req/h por direção) e uso de pesquisa/portfólio mitigam o risco,
-  mas é uma escolha consciente — alternativa seria um free tier de TomTom/HERE.
 - Quanto mais meses de dados acumulados, mais confiáveis as médias por horário.
