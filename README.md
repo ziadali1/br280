@@ -6,7 +6,7 @@ dashboard com os **melhores horários para viajar** numa via notoriamente
 congestionada.
 
 - **Trecho Referência (Sempre usado o mesmo):** Rua Fernandes Dias, Centro, São Francisco do Sul ⇄ Shopping Mueller Joinville — Centro
-- **Janela:** 05h às 00h (meia-noite), horário de Brasília, de hora em hora
+- **Janela:** 24h por dia, horário de Brasília, de hora em hora
 - **Fonte:** Google Maps (scraping headless) — **sem API paga**
 
 Além do tempo ponta-a-ponta, a rota é dividida em **5 sub-trechos** medidos

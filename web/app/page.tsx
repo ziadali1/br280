@@ -47,8 +47,8 @@ export default async function Page({
           Trânsito São Francisco do Sul ↔ Joinville
         </h1>
         <p className="mt-3 max-w-2xl text-slate-400">
-          Tempo de viagem coletado de hora em hora no Google Maps, das 5h à
-          meia-noite. Descubra os melhores horários para encarar essa via —
+          Tempo de viagem coletado de hora em hora no Google Maps, 24h por dia.
+          Descubra os melhores horários para encarar essa via —
           notoriamente congestionada.
         </p>
       </header>
@@ -105,7 +105,7 @@ export default async function Page({
       <section className="rounded-xl border border-slate-700/60 bg-slate-900/40 p-5 text-sm leading-relaxed text-slate-400">
         <h2 className="mb-2 text-base font-semibold text-slate-200">Metodologia</h2>
         <p>
-          A cada hora, das 5h à meia-noite (horário de Brasília), um coletor
+          A cada hora, 24h por dia (horário de Brasília), um coletor
           automatizado consulta o tempo de viagem &ldquo;no trânsito&rdquo; no
           Google Maps para as duas direções entre{" "}
           <strong>Rua Fernandes Dias, 322 — Centro, São Francisco do Sul</strong>{" "}

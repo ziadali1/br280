@@ -1,7 +1,7 @@
 export const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
-// Ordem de exibição da janela de coleta: 05h..23h e depois 00h.
-export const WINDOW_HOURS = [...Array.from({ length: 19 }, (_, i) => i + 5), 0];
+// Coleta roda 24h/dia; o dashboard exibe todas as horas (00h..23h).
+export const WINDOW_HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function fmtDuration(seconds: number | null | undefined): string {
   if (seconds == null) return "—";
