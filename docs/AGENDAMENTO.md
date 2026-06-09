@@ -64,8 +64,7 @@ aba **Actions**.
      | `Content-Type` | `application/json` |
 4. Em **Schedule**:
    - **Timezone:** `America/Sao_Paulo`
-   - **Hours:** `0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23`
-   - **Minutes:** `0`
+   - **Hours:** `Every 1 Hour`
    - (Days of month / month / weekday: todos)
 5. **Expected status code:** `204` (para o cron-job.org marcar como sucesso).
 6. Salve.
