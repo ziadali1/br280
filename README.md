@@ -93,12 +93,15 @@ Em caso de falha na extração, screenshot + HTML da página são salvos em
    ilimitados).
 2. Em **Settings → Secrets and variables → Actions**, crie o secret
    `DATABASE_URL` com a string do Neon.
-3. O workflow `collect.yml` roda sozinho de hora em hora (cron UTC
-   `0 0-3,8-23 * * *`, que cobre 05h–00h de São Paulo). Para testar na hora:
-   aba **Actions → Coleta de trânsito → Run workflow**.
+3. O workflow `collect.yml` é disparado **por um agendador externo** via
+   `workflow_dispatch` (veja **[docs/AGENDAMENTO.md](docs/AGENDAMENTO.md)**).
+   Para testar na hora: aba **Actions → Coleta de trânsito → Run workflow**.
 
-> ⏰ O cron do GitHub Actions pode atrasar alguns minutos em horários de pico da
-> plataforma — aceitável para coleta horária.
+> ⏰ **Não confie no `schedule` do GitHub para coleta horária.** O agendador
+> interno é best-effort: atrasa e descarta runs em horários de pico, gerando
+> buracos na série. Por isso o gatilho principal é externo (cron-job.org →
+> API do GitHub). O `schedule` nativo fica só como fallback. Detalhes em
+> [docs/AGENDAMENTO.md](docs/AGENDAMENTO.md).
 
 ### 4. Frontend (Vercel)
 

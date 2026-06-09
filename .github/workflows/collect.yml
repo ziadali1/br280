@@ -1,13 +1,17 @@
 name: Coleta de trânsito (SFS <-> Joinville)
 
 on:
-  # Janela: 05h às 00h (meia-noite) horário de São Paulo (UTC-3).
-  # SP 05h..23h -> UTC 08h..02h ; SP 00h -> UTC 03h.
-  # Resultado: UTC 08-23 e 00-03, de hora em hora.
-  schedule:
-    - cron: "0 0-3,8-23 * * *"
-  # Permite rodar manualmente para teste
+  # GATILHO PRINCIPAL: disparado por um agendador externo (ex: cron-job.org)
+  # via API workflow_dispatch, de hora em hora. Veja docs/AGENDAMENTO.md.
+  # Motivo: o agendador interno do GitHub (schedule, abaixo) é best-effort —
+  # atrasa e descarta runs em horários de pico, gerando buracos na coleta.
   workflow_dispatch:
+
+  # FALLBACK: cron nativo do GitHub. Não-confiável (pode pular execuções), mas
+  # serve de rede de segurança. Minuto :17 para evitar o pico do :00.
+  # Janela 05h-00h SP (UTC-3): UTC 08-23 e 00-03.
+  schedule:
+    - cron: "17 0-3,8-23 * * *"
 
 # Evita execuções sobrepostas se uma demorar
 concurrency:
