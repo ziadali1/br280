@@ -1,0 +1,27 @@
+name: Saúde da coleta
+
+on:
+  # 2x/dia: 08:23 e 20:23 UTC (05:23 e 17:23 em São Paulo).
+  # Minuto :23 para evitar o pico do :00 do agendador do GitHub.
+  schedule:
+    - cron: "23 8,20 * * *"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependência
+        run: pip install psycopg2-binary==2.9.10
+
+      - name: Verificar saúde da coleta
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scraper/verify_health.py
