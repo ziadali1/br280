@@ -205,13 +205,33 @@ def extract_reading(page) -> dict:
     }
 
 
+# Velocidade média máxima plausível no trecho; acima disso a leitura é
+# considerada anômala (rota alternativa/erro de parsing) e vira 'failed',
+# para não contaminar a baseline de fluxo livre (issue #5).
+MAX_PLAUSIBLE_KMH = 130
+
+
+def validate_reading(data: dict) -> None:
+    dur = data.get("duration_seconds")
+    dist = data.get("distance_meters")
+    if dur and dist and dur > 0:
+        kmh = (dist / 1000) / (dur / 3600)
+        if kmh > MAX_PLAUSIBLE_KMH:
+            raise RuntimeError(
+                f"leitura implausível: {kmh:.0f} km/h "
+                f"({data.get('distance_text')} em {data.get('duration_text')})"
+            )
+
+
 def scrape_route(page, route: dict) -> dict:
     url = build_url(route["origin"], route["destination"])
     page.goto(url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
     dismiss_consent(page)
     # dá tempo do roteamento com trânsito renderizar
     page.wait_for_timeout(4000)
-    return extract_reading(page)
+    data = extract_reading(page)
+    validate_reading(data)
+    return data
 
 
 # --------------------------------------------------------------------------- #
