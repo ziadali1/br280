@@ -31,6 +31,25 @@ export interface SegmentStat {
   samples: number;
 }
 
+export interface CollectionHealth {
+  filledSlots: number; // slots de hora com leitura ok nas últimas 24h
+  totalSlots: number; // 24
+}
+
+/** Saúde da coleta: slots de hora preenchidos nas últimas 24h (mesma
+ * lógica de completude do scraper/verify_health.py). */
+export async function getCollectionHealth(): Promise<CollectionHealth> {
+  if (!hasDb) return { filledSlots: 0, totalSlots: 24 };
+  const rows = (await sql`
+    SELECT COUNT(DISTINCT date_trunc('hour', collected_at))::int AS filled
+    FROM traffic_readings
+    WHERE status = 'ok' AND kind = 'total'
+      AND collected_at >= date_trunc('hour', now()) - INTERVAL '24 hours'
+      AND collected_at <  date_trunc('hour', now())
+  `) as Record<string, unknown>[];
+  return { filledSlots: (rows[0]?.filled as number) ?? 0, totalSlots: 24 };
+}
+
 /** Resumo de uma direção. */
 export async function getOverview(direction: Direction): Promise<Overview> {
   if (!hasDb) return { total: 0, firstDate: null, lastCollected: null, lastDurationText: null };
