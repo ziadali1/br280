@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { Direction, getHeatmap, getHourStats, getOverview } from "@/lib/queries";
+import {
+  Direction,
+  getCollectionHealth,
+  getHeatmap,
+  getHourStats,
+  getOverview,
+} from "@/lib/queries";
 import { Heatmap } from "@/components/Heatmap";
 import { BestHours } from "@/components/BestHours";
 import { fmtDateTime } from "@/lib/format";
@@ -30,10 +36,11 @@ export default async function Page({
   const direction: Direction = params.dir === "volta" ? "volta" : "ida";
   const info = DIRECTIONS[direction];
 
-  const [overview, heatmap, hourStats] = await Promise.all([
+  const [overview, heatmap, hourStats, health] = await Promise.all([
     getOverview(direction),
     getHeatmap(direction),
     getHourStats(direction),
+    getCollectionHealth(),
   ]);
 
   return (
@@ -74,11 +81,12 @@ export default async function Page({
       </div>
 
       {/* Cartões de resumo */}
-      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Direção" value={`${info.from} → ${info.to}`} small />
         <Stat label="Leituras coletadas" value={overview.total.toLocaleString("pt-BR")} />
         <Stat label="Última leitura" value={overview.lastDurationText ?? "—"} />
         <Stat label="Atualizado em" value={fmtDateTime(overview.lastCollected)} small />
+        <HealthStat filled={health.filledSlots} total={health.totalSlots} />
       </section>
 
       {/* Ranking de horários */}
@@ -121,6 +129,27 @@ export default async function Page({
         </p>
       </section>
     </main>
+  );
+}
+
+function HealthStat({ filled, total }: { filled: number; total: number }) {
+  const pct = total ? filled / total : 0;
+  // Verde >=70% (limiar do verify_health.py), âmbar >=40%, vermelho abaixo
+  const color =
+    pct >= 0.7 ? "text-emerald-400" : pct >= 0.4 ? "text-amber-400" : "text-rose-400";
+  const dot =
+    pct >= 0.7 ? "bg-emerald-400" : pct >= 0.4 ? "bg-amber-400" : "bg-rose-400";
+  return (
+    <div className="rounded-xl border border-slate-700/60 bg-slate-900/40 p-4">
+      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-slate-500">
+        <span className={`inline-block h-2 w-2 rounded-full ${dot}`} />
+        Saúde da coleta
+      </div>
+      <div className={`mt-1 text-2xl font-semibold ${color}`}>
+        {filled}/{total}
+      </div>
+      <div className="text-xs text-slate-500">últimas horas coletadas</div>
+    </div>
   );
 }
 

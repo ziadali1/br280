@@ -1,5 +1,8 @@
 # Trânsito SFS ↔ Joinville (BR-280)
 
+[![Saúde da coleta](https://github.com/ziadali1/br280/actions/workflows/verify.yml/badge.svg)](https://github.com/ziadali1/br280/actions/workflows/verify.yml)
+[![Coleta de trânsito](https://github.com/ziadali1/br280/actions/workflows/collect.yml/badge.svg)](https://github.com/ziadali1/br280/actions/workflows/collect.yml)
+
 Coleta de hora em hora o tempo de viagem entre **São Francisco do Sul** e
 **Joinville** (ida e volta) direto do Google Maps, grava em PostgreSQL e expõe um
 dashboard com os **melhores horários para viajar** numa via notoriamente
@@ -135,6 +138,20 @@ Tabela `traffic_readings` — uma linha por leitura (direção × horário):
 
 Um índice único impede gravar duas leituras `ok` da mesma direção na mesma
 hora local.
+
+## Monitoramento
+
+O workflow [`verify.yml`](.github/workflows/verify.yml) roda 2x/dia e valida a
+saúde da série no banco (script
+[`scraper/verify_health.py`](scraper/verify_health.py), limiares no topo):
+
+1. **Frescor** — última leitura `ok` há no máximo 3h
+2. **Completude** — ≥70% dos slots de hora preenchidos nas últimas 24h
+3. **Taxa de falha** — ≤20% de leituras `failed` nas últimas 24h
+
+Se qualquer checagem reprovar, o job falha e o GitHub notifica por e-mail. O
+status aparece no badge no topo deste README e o dashboard exibe um card
+"Saúde da coleta" com os slots das últimas 24h.
 
 ## Limitações conhecidas
 
