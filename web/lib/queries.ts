@@ -121,7 +121,9 @@ export async function getSegmentStats(
     SELECT segment_index,
            MAX(segment_name)        AS name,
            AVG(duration_seconds)::float AS avg_seconds,
-           MIN(duration_seconds)::int   AS baseline_seconds,
+           -- p10 como "fluxo livre": robusto a leituras anômalas (issue #5)
+           PERCENTILE_CONT(0.10) WITHIN GROUP (ORDER BY duration_seconds)::float
+                                    AS baseline_seconds,
            COUNT(*)::int            AS samples
     FROM traffic_readings
     WHERE direction = ${direction}
@@ -140,7 +142,7 @@ export async function getSegmentStats(
       name: (r.name as string) ?? `Trecho ${r.segment_index}`,
       avgSeconds: avg,
       baselineSeconds: base,
-      ratio: base > 0 ? avg / base : 1,
+      ratio: base > 0 ? Math.max(1, avg / base) : 1,
       samples: r.samples as number,
     };
   });
