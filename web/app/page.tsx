@@ -2,13 +2,20 @@ import Link from "next/link";
 import {
   Direction,
   getCollectionHealth,
+  getExtremes,
   getHeatmap,
   getHourStats,
   getOverview,
 } from "@/lib/queries";
 import { Heatmap } from "@/components/Heatmap";
 import { BestHours } from "@/components/BestHours";
-import { fmtDateTime } from "@/lib/format";
+import { Extremes } from "@/components/Extremes";
+import {
+  fmtDateTime,
+  isUsefulHour,
+  USEFUL_HOUR_MIN,
+  USEFUL_HOUR_MAX,
+} from "@/lib/format";
 import { Nav } from "@/components/Nav";
 
 export const dynamic = "force-dynamic";
@@ -36,12 +43,16 @@ export default async function Page({
   const direction: Direction = params.dir === "volta" ? "volta" : "ida";
   const info = DIRECTIONS[direction];
 
-  const [overview, heatmap, hourStats, health] = await Promise.all([
+  const [overview, heatmap, hourStats, health, extremes] = await Promise.all([
     getOverview(direction),
     getHeatmap(direction),
     getHourStats(direction),
     getCollectionHealth(),
+    getExtremes(direction),
   ]);
+
+  // Ranking considera só horários úteis (exclui a madrugada, sempre mais rápida)
+  const usefulHours = hourStats.filter((h) => isUsefulHour(h.hour));
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-10">
@@ -89,12 +100,27 @@ export default async function Page({
         <HealthStat filled={health.filledSlots} total={health.totalSlots} />
       </section>
 
-      {/* Ranking de horários */}
+      {/* Ranking de horários úteis */}
       <section className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold text-white">
-          Melhores e piores horários
+        <h2 className="mb-1 text-lg font-semibold text-white">
+          Melhores e piores horários úteis
         </h2>
-        <BestHours stats={hourStats} />
+        <p className="mb-4 text-sm text-slate-400">
+          Considerando das {USEFUL_HOUR_MIN}h às {USEFUL_HOUR_MAX}h — a madrugada é
+          sempre a mais rápida e foi deixada de fora.
+        </p>
+        <BestHours stats={usefulHours} />
+      </section>
+
+      {/* Recordes */}
+      <section className="mb-10">
+        <h2 className="mb-1 text-lg font-semibold text-white">
+          Recordes ({info.from} → {info.to})
+        </h2>
+        <p className="mb-4 text-sm text-slate-400">
+          Pior e melhor tempo de viagem já registrados em toda a série.
+        </p>
+        <Extremes data={extremes} />
       </section>
 
       {/* Heatmap */}
@@ -116,7 +142,7 @@ export default async function Page({
           A cada hora, 24h por dia (horário de Brasília), um coletor
           automatizado consulta o tempo de viagem &ldquo;no trânsito&rdquo; no
           Google Maps para as duas direções entre{" "}
-          <strong>Rua Fernandes Dias, 322 — Centro, São Francisco do Sul</strong>{" "}
+          <strong>Centro, São Francisco do Sul</strong>{" "}
           e <strong>Shopping Mueller Joinville — Centro</strong>. Cada medição é
           gravada em um banco PostgreSQL. As médias acima consolidam todas as
           coletas por faixa de horário. Quanto mais meses de dados, mais

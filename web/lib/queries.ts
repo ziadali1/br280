@@ -36,6 +36,19 @@ export interface CollectionHealth {
   totalSlots: number; // 24
 }
 
+export interface ExtremeReading {
+  weekday: number;
+  hour: number;
+  date: string;
+  seconds: number;
+  text: string | null;
+}
+
+export interface Extremes {
+  worst: ExtremeReading | null;
+  best: ExtremeReading | null;
+}
+
 /** Saúde da coleta: slots de hora preenchidos nas últimas 24h (mesma
  * lógica de completude do scraper/verify_health.py). */
 export async function getCollectionHealth(): Promise<CollectionHealth> {
@@ -111,39 +124,88 @@ export async function getHourStats(direction: Direction): Promise<HourStat[]> {
   }));
 }
 
-/** Congestionamento por sub-trecho. `hour` opcional filtra por faixa horária. */
+function toExtreme(rows: Record<string, unknown>[]): ExtremeReading | null {
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    weekday: r.weekday as number,
+    hour: r.hour as number,
+    date: r.date as string,
+    seconds: r.seconds as number,
+    text: (r.text as string) ?? null,
+  };
+}
+
+/** Pior e melhor leitura única já registrada (rota total) para a direção. */
+export async function getExtremes(direction: Direction): Promise<Extremes> {
+  if (!hasDb) return { worst: null, best: null };
+  const [worstRows, bestRows] = await Promise.all([
+    sql`
+      SELECT weekday, local_hour AS hour, local_date::text AS date,
+             duration_seconds AS seconds, duration_text AS text
+      FROM traffic_readings
+      WHERE direction = ${direction} AND kind = 'total' AND status = 'ok'
+        AND duration_seconds IS NOT NULL
+      ORDER BY duration_seconds DESC LIMIT 1
+    ` as Promise<Record<string, unknown>[]>,
+    sql`
+      SELECT weekday, local_hour AS hour, local_date::text AS date,
+             duration_seconds AS seconds, duration_text AS text
+      FROM traffic_readings
+      WHERE direction = ${direction} AND kind = 'total' AND status = 'ok'
+        AND duration_seconds IS NOT NULL
+      ORDER BY duration_seconds ASC LIMIT 1
+    ` as Promise<Record<string, unknown>[]>,
+  ]);
+  return { worst: toExtreme(worstRows), best: toExtreme(bestRows) };
+}
+
+/** Congestionamento por sub-trecho. `hourFrom`/`hourTo` opcionais restringem
+ * a um período (ex: 17–19h = pico da tarde). Sem eles, usa todas as horas. */
 export async function getSegmentStats(
   direction: Direction,
-  hour?: number
+  hourFrom?: number,
+  hourTo?: number
 ): Promise<SegmentStat[]> {
   if (!hasDb) return [];
+  // Média é calculada só no período (FILTER); a baseline p10 usa TODAS as horas,
+  // para o ratio comparar o pico contra o fluxo livre global (não o p10 do pico).
+  // A condição é inlinada (o driver do neon não aceita fragmentos SQL aninhados).
+  const from = hourFrom ?? null;
+  const to = hourTo ?? null;
   const rows = (await sql`
     SELECT segment_index,
-           MAX(segment_name)        AS name,
-           AVG(duration_seconds)::float AS avg_seconds,
-           -- p10 como "fluxo livre": robusto a leituras anômalas (issue #5)
+           MAX(segment_name) AS name,
+           AVG(duration_seconds) FILTER (
+             WHERE ${from}::int IS NULL
+                OR local_hour BETWEEN ${from}::int AND ${to}::int
+           )::float AS avg_seconds,
            PERCENTILE_CONT(0.10) WITHIN GROUP (ORDER BY duration_seconds)::float
                                     AS baseline_seconds,
-           COUNT(*)::int            AS samples
+           COUNT(*) FILTER (
+             WHERE ${from}::int IS NULL
+                OR local_hour BETWEEN ${from}::int AND ${to}::int
+           )::int AS samples
     FROM traffic_readings
     WHERE direction = ${direction}
       AND kind = 'segment'
       AND status = 'ok'
       AND duration_seconds IS NOT NULL
-      AND (${hour ?? null}::int IS NULL OR local_hour = ${hour ?? null}::int)
     GROUP BY segment_index
     ORDER BY segment_index
   `) as Record<string, unknown>[];
-  return rows.map((r) => {
-    const avg = r.avg_seconds as number;
-    const base = (r.baseline_seconds as number) || avg;
-    return {
-      segmentIndex: r.segment_index as number,
-      name: (r.name as string) ?? `Trecho ${r.segment_index}`,
-      avgSeconds: avg,
-      baselineSeconds: base,
-      ratio: base > 0 ? Math.max(1, avg / base) : 1,
-      samples: r.samples as number,
-    };
-  });
+  return rows
+    .filter((r) => r.avg_seconds != null) // sem leituras nesse período -> omite (mapa mostra cinza)
+    .map((r) => {
+      const avg = r.avg_seconds as number;
+      const base = (r.baseline_seconds as number) || avg;
+      return {
+        segmentIndex: r.segment_index as number,
+        name: (r.name as string) ?? `Trecho ${r.segment_index}`,
+        avgSeconds: avg,
+        baselineSeconds: base,
+        ratio: base > 0 ? Math.max(1, avg / base) : 1,
+        samples: r.samples as number,
+      };
+    });
 }

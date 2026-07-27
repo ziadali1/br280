@@ -1,7 +1,23 @@
 export const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+export const WEEKDAYS_FULL = [
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sábado",
+  "Domingo",
+];
 
 // Coleta roda 24h/dia; o dashboard exibe todas as horas (00h..23h).
 export const WINDOW_HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+// "Horários úteis": faixa em que faz sentido recomendar viagem (exclui a
+// madrugada, que é sempre a mais rápida e pouco informativa).
+export const USEFUL_HOUR_MIN = 6;
+export const USEFUL_HOUR_MAX = 22;
+export const isUsefulHour = (h: number) =>
+  h >= USEFUL_HOUR_MIN && h <= USEFUL_HOUR_MAX;
 
 export function fmtDuration(seconds: number | null | undefined): string {
   if (seconds == null) return "—";
